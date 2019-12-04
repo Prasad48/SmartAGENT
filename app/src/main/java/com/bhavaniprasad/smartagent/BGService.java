@@ -17,6 +17,11 @@ import java.util.TimerTask;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 public class BGService extends Service {
     public BGService() {
@@ -65,10 +70,36 @@ public class BGService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         super.onStartCommand(intent, flags, startId);
+        getapidata();
         startTimer();
         return START_STICKY;
     }
 
+    public void getapidata(){
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(Api.BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create()) //Here we are using the GsonConverterFactory to directly convert json data to object
+                .build();
+
+        Api api = retrofit.create(Api.class);
+
+        Call<Dbhandler> call = api.getjson();
+        call.enqueue(new Callback<Dbhandler>() {
+            @Override
+            public void onResponse(Call<Dbhandler> call, Response<Dbhandler> response) {
+                Dbhandler bu = response.body();
+                Log.e("tt","res is"+response.body());
+
+
+            }
+
+            @Override
+            public void onFailure(Call<Dbhandler> call, Throwable t) {
+
+            }
+        });
+
+    }
 
     @Override
     public void onDestroy() {
