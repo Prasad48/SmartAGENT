@@ -6,11 +6,18 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
+import android.widget.Toast;
 
+import com.google.gson.Gson;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -24,6 +31,9 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class BGService extends Service {
+    DatabaseManager mDatabase;
+    List<description> datalistfrmdb;
+    private int found;
     public BGService() {
     }
 
@@ -38,6 +48,12 @@ public class BGService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        mDatabase = new DatabaseManager(this);
+        datalistfrmdb = new ArrayList<>();
+
+        if(mDatabase.getcount().getInt(0)!=0)
+        this.getAlldata();
+
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.O)
             startMyOwnForeground();
         else
@@ -75,6 +91,23 @@ public class BGService extends Service {
         return START_STICKY;
     }
 
+    private void getAlldata() {
+        //we are here using the DatabaseManager instance to get all employees
+        Cursor cursor = mDatabase.getAlldata();
+        if (cursor.moveToFirst()) {
+            do {
+                datalistfrmdb.add(new description(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.getString(2),
+                        cursor.getInt(3),
+                        cursor.getString(4)
+                ));
+            } while (cursor.moveToNext());
+
+        }
+    }
+
     public void getapidata(){
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl(Api.BASE_URL)
@@ -87,14 +120,60 @@ public class BGService extends Service {
         call.enqueue(new Callback<Dbhandler>() {
             @Override
             public void onResponse(Call<Dbhandler> call, Response<Dbhandler> response) {
-                Dbhandler bu = response.body();
+                String insertid,insertname,inserttype,insertcdn_path;
+                int insertsizeInBytes;
+
+                Dbhandler resp = response.body();
+
+                List<description> descarr = resp.getDescriptionArray();
+                for (description responsedesc : descarr) {
+                    found=0;
+                    insertid = responsedesc.getId();
+                    insertname = responsedesc.getName();
+                    inserttype= responsedesc.getType();
+                    insertsizeInBytes=  responsedesc.getSizeInBytes();
+                    insertcdn_path = responsedesc.getCdn_path();
+                    if(!datalistfrmdb.isEmpty()){
+                        for (description descfrmdb : datalistfrmdb) {
+                            String nn=descfrmdb.getName();
+                            int dd= descfrmdb.getSizeInBytes();
+                            if (descfrmdb.getName().equals(insertname) && descfrmdb.getSizeInBytes() == insertsizeInBytes) {
+                                found = 1;
+                                break;
+                            }
+                        }
+                        if(found!=1){             //got a new record not matches with record in localdb
+                            if (mDatabase.adddata(insertid,insertname, inserttype,insertsizeInBytes,insertcdn_path)) {
+                                Log.e("tt","successfully inserted");
+                                Toast.makeText(getApplicationContext(),"successfully inserted for existing",Toast.LENGTH_SHORT).show();
+                                found=0;
+                            }
+                            else {
+                                Log.e("tt","couldnt insert");
+                                Toast.makeText(getApplicationContext(),"couldnt insert data",Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    }
+                    else{
+                        if (mDatabase.adddata(insertid,insertname, inserttype,insertsizeInBytes,insertcdn_path)) {   //got a new record
+//                        Toast.makeText(this, "Employee Added", Toast.LENGTH_SHORT).show();
+                            Log.e("tt","successfully inserted");
+                            Toast.makeText(getApplicationContext(),"successfully inserted",Toast.LENGTH_SHORT).show();
+
+                        }
+                        else {
+                            Log.e("tt","successfully inserted");
+                            Toast.makeText(getApplicationContext(),"couldnt insert data",Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
                 Log.e("tt","res is"+response.body());
-
-
             }
 
             @Override
             public void onFailure(Call<Dbhandler> call, Throwable t) {
+                Log.e("tt","faileddd"+t);
+
 
             }
         });
@@ -137,5 +216,18 @@ public class BGService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    public static void databaseConnect(String dbName) throws Exception {
+
+        File file = new File(dbName);
+
+        if (file.exists()) //here's how to check
+        {
+            System.out.print("This database name already exists");
+        } else {
+
+
+        }
     }
 }

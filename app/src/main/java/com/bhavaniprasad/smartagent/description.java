@@ -8,6 +8,13 @@ public class description {
     private int sizeInBytes;
     private String cdn_path;
 
+    public description(String id, String name, String type, int sizeInBytes, String cdn_path) {
+        this.id = id;
+        this.name = name;
+        this.type = type;
+        this.sizeInBytes = sizeInBytes;
+        this.cdn_path = cdn_path;
+    }
 
     public String getId() {
         return id;

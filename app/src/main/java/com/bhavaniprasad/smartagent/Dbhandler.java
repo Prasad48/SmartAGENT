@@ -11,5 +11,11 @@ public class Dbhandler {
     @Expose
     private List<description> descriptionArray ;
 
+    public List<description> getDescriptionArray() {
+        return descriptionArray;
+    }
 
+    public void setDescriptionArray(List<description> descriptionArray) {
+        this.descriptionArray = descriptionArray;
+    }
 }

@@ -12,14 +12,14 @@ public class DatabaseManager  extends SQLiteOpenHelper {
      * Instead here we are defining all the Strings that is required for our database
      * for example databasename, table name and column names.
      * */
-    private static final String DATABASE_NAME = "";
+    private static final String DATABASE_NAME = "DependenciesDatabase4";
     private static final int DATABASE_VERSION = 1;
-    private static final String TABLE_NAME = "employees";
+    private static final String TABLE_NAME = "dependencies4";
     private static final String COLUMN_ID = "id";
     private static final String COLUMN_NAME = "name";
-    private static final String COLUMN_DEPT = "department";
-    private static final String COLUMN_JOIN_DATE = "joiningdate";
-    private static final String COLUMN_SALARY = "salary";
+    private static final String COLUMN_TYPE = "type";
+    private static final String COLUMN_sizeInBytes = "sizeInBytes";
+    private static final String COLUMN_cdn_path = "cdn_path";
 
     /*
      * We need to call the super i.e. parent class constructur
@@ -36,6 +36,7 @@ public class DatabaseManager  extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase sqLiteDatabase) {
 
+
         /*
          * The query to create our table
          * It is same as we had in the previous post
@@ -46,9 +47,9 @@ public class DatabaseManager  extends SQLiteOpenHelper {
         String sql = "CREATE TABLE " + TABLE_NAME + " (\n" +
                 "    " + COLUMN_ID + " INTEGER NOT NULL CONSTRAINT employees_pk PRIMARY KEY AUTOINCREMENT,\n" +
                 "    " + COLUMN_NAME + " varchar(200) NOT NULL,\n" +
-                "    " + COLUMN_DEPT + " varchar(200) NOT NULL,\n" +
-                "    " + COLUMN_JOIN_DATE + " datetime NOT NULL,\n" +
-                "    " + COLUMN_SALARY + " double NOT NULL\n" +
+                "    " + COLUMN_TYPE + " varchar(200) NOT NULL,\n" +
+                "    " + COLUMN_sizeInBytes + " int NOT NULL,\n" +
+                "    " + COLUMN_cdn_path + " varchar(200) NOT NULL\n" +
                 ");";
 
         /*
@@ -95,13 +96,13 @@ public class DatabaseManager  extends SQLiteOpenHelper {
      * So here we are returning != -1, it will be true of record is inserted and false if not inserted
      * */
 
-    boolean addEmployee(String name, String dept, String joiningdate, double salary) {
+    boolean adddata(String id, String name, String type,int size, String cdnpath) {
+        SQLiteDatabase db = getWritableDatabase();
         ContentValues contentValues = new ContentValues();
         contentValues.put(COLUMN_NAME, name);
-        contentValues.put(COLUMN_DEPT, dept);
-        contentValues.put(COLUMN_JOIN_DATE, joiningdate);
-        contentValues.put(COLUMN_SALARY, salary);
-        SQLiteDatabase db = getWritableDatabase();
+        contentValues.put(COLUMN_TYPE, type);
+        contentValues.put(COLUMN_sizeInBytes, size);
+        contentValues.put(COLUMN_cdn_path, cdnpath);
         return db.insert(TABLE_NAME, null, contentValues) != -1;
     }
 
@@ -120,30 +121,51 @@ public class DatabaseManager  extends SQLiteOpenHelper {
      *
      * rawQuery returns a Cursor object having all the data fetched from database
      * */
-    Cursor getAllEmployees() {
+    Cursor getAlldata() {
         SQLiteDatabase db = getReadableDatabase();
         return db.rawQuery("SELECT * FROM " + TABLE_NAME, null);
     }
 
     /*
-     * UPDATE OPERATION
-     * ==================
-     * Here we are performing the update operation. The proecess is same as the Create operation.
-     * We are first getting a database instance using getWritableDatabase() method as the operation we need to perform is a write operation
-     * Then we have the contentvalues object with the new values
-     *
-     * to update the row we use update() method. It takes 4 parameters
-     * 1. String -> It is the table name
-     * 2. ContentValues -> The new values
-     * 3. String -> Here we pass the column name = ?, the column we want to use for putting the where clause
-     * 4. String[] -> The values that is to be binded with the where clause
-     * */
-    boolean updateEmployee(int id, String name, String dept, double salary) {
+    * checking data presence
+     */
+    Cursor getcount(){
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cur = db.rawQuery("SELECT COUNT(*) FROM " + TABLE_NAME, null);
+        if (cur != null) {
+            cur.moveToFirst();                       // Always one row returned.
+            return cur;
+//            if (cur.getInt (0) == 0) {               // Zero count means empty table.
+//                return cur;
+//            }
+//            else
+//                return cur;
+        }
+        return cur;
+    }
+
+
+   /*
+    * UPDATE OPERATION
+    * ==================
+    * Here we are performing the update operation. The proecess is same as the Create operation.
+    * We are first getting a database instance using getWritableDatabase() method as the operation we need to perform is a write operation
+    * Then we have the contentvalues object with the new values
+    *
+    * to update the row we use update() method. It takes 4 parameters
+    * 1. String -> It is the table name
+    * 2. ContentValues -> The new values
+    * 3. String -> Here we pass the column name = ?, the column we want to use for putting the where clause
+    * 4. String[] -> The values that is to be binded with the where clause
+    * */
+    boolean updatefilesdata(String id, String name, String type,int size, String cdnpath) {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues contentValues = new ContentValues();
         contentValues.put(COLUMN_NAME, name);
-        contentValues.put(COLUMN_DEPT, dept);
-        contentValues.put(COLUMN_SALARY, salary);
+        contentValues.put(COLUMN_TYPE, type);
+        contentValues.put(COLUMN_sizeInBytes, size);
+        contentValues.put(COLUMN_cdn_path, cdnpath);
+
         return db.update(TABLE_NAME, contentValues, COLUMN_ID + "=?", new String[]{String.valueOf(id)}) == 1;
     }
 
@@ -158,7 +180,7 @@ public class DatabaseManager  extends SQLiteOpenHelper {
      * 2. String -> The where clause passed as columnname = ?
      * 3. String[] -> The values to be binded on the where clause
      * */
-    boolean deleteEmployee(int id) {
+    boolean deletefilesdata(String id) {
         SQLiteDatabase db = getWritableDatabase();
         return db.delete(TABLE_NAME, COLUMN_ID + "=?", new String[]{String.valueOf(id)}) == 1;
     }
