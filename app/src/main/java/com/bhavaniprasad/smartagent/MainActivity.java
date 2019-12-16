@@ -32,6 +32,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 //        getDbdata();
 
+
         mYourService = new BGService();
         mServiceIntent = new Intent(this, mYourService.getClass());
         if (!isMyServiceRunning(mYourService.getClass())) {
@@ -46,14 +47,20 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean isMyServiceRunning(Class<?> serviceClass) {
         ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.getName().equals(service.service.getClassName())) {
-                Log.i ("Service status", "Running");
-                return true;
+        try{
+            for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+                if (serviceClass.getName().equals(service.service.getClassName())) {
+                    Log.i ("Service status", "Running");
+                    return true;
+                }
             }
+            Log.i ("Service status", "Not running");
+            return false;
         }
-        Log.i ("Service status", "Not running");
-        return false;
+        catch (Exception e){
+            Log.i ("Service status", "Not running"+e);
+            return false;
+        }
     }
 
 

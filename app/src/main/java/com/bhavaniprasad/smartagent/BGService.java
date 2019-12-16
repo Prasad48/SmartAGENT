@@ -8,20 +8,37 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Color;
+import android.net.Uri;
+import android.nfc.Tag;
+import android.os.AsyncTask;
 import android.os.Build;
+import android.os.Environment;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.google.gson.Gson;
 
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.NonNull;
+
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 import retrofit2.Call;
@@ -34,6 +51,9 @@ public class BGService extends Service {
     DatabaseManager mDatabase;
     List<description> datalistfrmdb;
     private int found;
+    private String filename;
+
+    String TAG = "BGservice";
     public BGService() {
     }
 
@@ -50,6 +70,7 @@ public class BGService extends Service {
         super.onCreate();
         mDatabase = new DatabaseManager(this);
         datalistfrmdb = new ArrayList<>();
+        filename="";
 
         if(mDatabase.getcount().getInt(0)!=0)
         this.getAlldata();
@@ -117,68 +138,87 @@ public class BGService extends Service {
         Api api = retrofit.create(Api.class);
 
         Call<Dbhandler> call = api.getjson();
-        call.enqueue(new Callback<Dbhandler>() {
-            @Override
-            public void onResponse(Call<Dbhandler> call, Response<Dbhandler> response) {
-                String insertid,insertname,inserttype,insertcdn_path;
-                int insertsizeInBytes;
+        try{
+            call.enqueue(new Callback<Dbhandler>() {
+                @Override
+                public void onResponse(Call<Dbhandler> call, Response<Dbhandler> response) {
+                    String insertid,insertname,inserttype,insertcdn_path;
+                    int insertsizeInBytes;
 
-                Dbhandler resp = response.body();
+                    Dbhandler resp = response.body();
 
-                List<description> descarr = resp.getDescriptionArray();
-                for (description responsedesc : descarr) {
-                    found=0;
-                    insertid = responsedesc.getId();
-                    insertname = responsedesc.getName();
-                    inserttype= responsedesc.getType();
-                    insertsizeInBytes=  responsedesc.getSizeInBytes();
-                    insertcdn_path = responsedesc.getCdn_path();
-                    if(!datalistfrmdb.isEmpty()){
-                        for (description descfrmdb : datalistfrmdb) {
-                            String nn=descfrmdb.getName();
-                            int dd= descfrmdb.getSizeInBytes();
-                            if (descfrmdb.getName().equals(insertname) && descfrmdb.getSizeInBytes() == insertsizeInBytes) {
-                                found = 1;
-                                break;
+                    List<description> descarr = resp.getDescriptionArray();
+                    for (description responsedesc : descarr) {
+                        found=0;
+                        insertid = responsedesc.getId();
+                        insertname = responsedesc.getName();
+                        inserttype= responsedesc.getType();
+
+                        insertsizeInBytes=  responsedesc.getSizeInBytes();
+                        insertcdn_path = responsedesc.getCdn_path();
+                        String file_url = responsedesc.getCdn_path();
+//                            "http://www.qwikisoft.com/demo/ashade/20001.kml";
+
+                        if(!datalistfrmdb.isEmpty()){
+                            for (description descfrmdb : datalistfrmdb) {
+                                String nn=descfrmdb.getName();
+                                int dd= descfrmdb.getSizeInBytes();
+                                if (descfrmdb.getName().equals(insertname) && descfrmdb.getSizeInBytes() == insertsizeInBytes) {
+                                    found = 1;
+                                    break;
+                                }
+                            }
+                            if(found!=1){             //got a new record not matches with record in localdb
+                                if (mDatabase.adddata(insertid,insertname, inserttype,insertsizeInBytes,insertcdn_path)) {
+                                    Log.e(TAG,"successfully inserted");
+                                    Toast.makeText(getApplicationContext(),"successfully inserted for existing",Toast.LENGTH_SHORT).show();
+                                    found=0;
+                                }
+                                else {
+                                    Log.e(TAG,"couldnt insert");
+                                    Toast.makeText(getApplicationContext(),"couldnt insert data",Toast.LENGTH_SHORT).show();
+                                }
+                            }
+
+                            if(!fileExist(insertname)){
+                                new DownloadFileFromURL().execute(file_url);
+                                Toast.makeText(getApplicationContext(),"File Downloaded",Toast.LENGTH_SHORT).show();
+                            }
+                            else{
+                                Toast.makeText(getApplicationContext(),"Already Downloaded",Toast.LENGTH_SHORT).show();
                             }
                         }
-                        if(found!=1){             //got a new record not matches with record in localdb
-                            if (mDatabase.adddata(insertid,insertname, inserttype,insertsizeInBytes,insertcdn_path)) {
-                                Log.e("tt","successfully inserted");
-                                Toast.makeText(getApplicationContext(),"successfully inserted for existing",Toast.LENGTH_SHORT).show();
-                                found=0;
+                        else{
+                            if (mDatabase.adddata(insertid,insertname, inserttype,insertsizeInBytes,insertcdn_path)) {   //got a new record
+//                        Toast.makeText(this, "Employee Added", Toast.LENGTH_SHORT).show();
+                                Log.e(TAG,"successfully inserted");
+                                Toast.makeText(getApplicationContext(),"successfully inserted",Toast.LENGTH_SHORT).show();
+
                             }
                             else {
-                                Log.e("tt","couldnt insert");
+                                Log.e(TAG,"couldnt insert data");
                                 Toast.makeText(getApplicationContext(),"couldnt insert data",Toast.LENGTH_SHORT).show();
                             }
+                            new DownloadFileFromURL().execute(file_url);
                         }
                     }
-                    else{
-                        if (mDatabase.adddata(insertid,insertname, inserttype,insertsizeInBytes,insertcdn_path)) {   //got a new record
-//                        Toast.makeText(this, "Employee Added", Toast.LENGTH_SHORT).show();
-                            Log.e("tt","successfully inserted");
-                            Toast.makeText(getApplicationContext(),"successfully inserted",Toast.LENGTH_SHORT).show();
-
-                        }
-                        else {
-                            Log.e("tt","successfully inserted");
-                            Toast.makeText(getApplicationContext(),"couldnt insert data",Toast.LENGTH_SHORT).show();
-                        }
-                    }
+                    Log.e("Response","res is"+response.body());
                 }
-                Log.e("tt","res is"+response.body());
-            }
 
-            @Override
-            public void onFailure(Call<Dbhandler> call, Throwable t) {
-                Log.e("tt","faileddd"+t);
+                @Override
+                public void onFailure(Call<Dbhandler> call, Throwable t) {
+                    Log.e("FAiled","faileddd"+t);
 
 
-            }
-        });
+                }
+            });
+        }
+        catch (Exception e){
+            Log.e(TAG,"api call exception"+e);
+        }
 
     }
+
 
     @Override
     public void onDestroy() {
@@ -191,6 +231,12 @@ public class BGService extends Service {
         this.sendBroadcast(broadcastIntent);
     }
 
+
+    public boolean fileExist(String fname){
+        File file = new File(Environment.getExternalStorageDirectory(),fname);
+        boolean exist= file.exists();
+        return exist;
+    }
 
 
     private Timer timer;
@@ -218,16 +264,77 @@ public class BGService extends Service {
         return null;
     }
 
-    public static void databaseConnect(String dbName) throws Exception {
+    /**
+     * Background Async Task to download file
+     * */
+    class DownloadFileFromURL extends AsyncTask<String, String, String> {
 
-        File file = new File(dbName);
+        @Override
+        protected String doInBackground(String... f_url) {
+            int count;
+            try {
+                URL url = new URL(f_url[0]);
 
-        if (file.exists()) //here's how to check
-        {
-            System.out.print("This database name already exists");
-        } else {
+                Uri uri = Uri.parse(f_url[0]);
+//                String protocol = uri.getScheme();
+//                String server = uri.getAuthority();
+                String path = uri.getPath();
+                File theFile = new File(path);
+                String[] filewithtype=theFile.getName().split("\\.");
+                String filename=filewithtype[0];
+
+                String filetyp=filewithtype[1];
+                URLConnection conection = url.openConnection();
+                conection.connect();
+                File mediaStorageDir,mediaStorageDirp;
+
+                // this will be useful so that you can show a tipical 0-100%
+                // progress bar
+                int lenghtOfFile = conection.getContentLength();
+
+                // download the file
+                InputStream input = new BufferedInputStream(url.openStream(),
+                        8192);
 
 
+                if(filetyp.equals("mp4")){
+                    new File(Environment.getExternalStorageDirectory(), filename);
+                    mediaStorageDirp = new File(Environment.getExternalStorageDirectory().toString()+"/"+filename.concat(".mp4"));
+                }
+                else{
+                    new File(Environment.getExternalStorageDirectory(), filename);
+                    mediaStorageDirp = new File(Environment.getExternalStorageDirectory().toString()+"/"+filename.concat(".svg"));
+                }
+
+                // Output stream
+                OutputStream output = new FileOutputStream(mediaStorageDirp);
+
+                byte data[] = new byte[1024];
+
+                long total = 0;
+
+                while ((count = input.read(data)) != -1) {
+                    total += count;
+                    // publishing the progress....
+                    // After this onProgressUpdate will be called
+                    publishProgress("" + (int) ((total * 100) / lenghtOfFile));
+
+                    // writing data to file
+                    output.write(data, 0, count);
+                }
+
+                // flushing output
+                output.flush();
+
+                // closing streams
+                output.close();
+                input.close();
+
+            } catch (Exception e) {
+                Log.e("Error: ", "download exception"+e);
+            }
+
+            return null;
         }
     }
 }

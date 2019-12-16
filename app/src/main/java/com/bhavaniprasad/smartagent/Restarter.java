@@ -17,8 +17,6 @@ public class Restarter extends BroadcastReceiver {
             context.startForegroundService(new Intent(context, BGService.class));
         } else {
             context.startService(new Intent(context, BGService.class));
-
-
         }
     }
 }
